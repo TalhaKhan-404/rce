@@ -12,7 +12,7 @@ def get_proper_shell(s):
     
     try:
         # Change to safe directory
-        os.chdir('/home/talhakhan' if os.path.exists('/home/talhakhan') else '/tmp')
+        os.chdir('/home' if os.path.exists('/home/') else '/tmp')
         
         # Set environment variables
         os.environ['TERM'] = 'xterm-256color'
